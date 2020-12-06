@@ -47,12 +47,12 @@ def train_model(ENV, train_data=None, test_data=None, decode=False, file_decode=
         bias_classes = tf.Variable(tf.zeros([num_classes]), dtype=tf.float32)
 
         # Network
-        forward_cell = tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
-        backward_cell = tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
+        forward_cell = lambda: tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
+        backward_cell = lambda: tf.nn.rnn_cell.LSTMCell(num_hidden, use_peepholes=True, state_is_tuple=True)
 
-        stack_forward_cell = tf.nn.rnn_cell.MultiRNNCell([forward_cell] * num_layers,
+        stack_forward_cell = tf.nn.rnn_cell.MultiRNNCell([forward_cell() for _ in range(num_layers)],
                                                          state_is_tuple=True)
-        stack_backward_cell = tf.nn.rnn_cell.MultiRNNCell([backward_cell] * num_layers,
+        stack_backward_cell = tf.nn.rnn_cell.MultiRNNCell([backward_cell() for _ in range(num_layers)],
                                                           state_is_tuple=True)
 
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(stack_forward_cell, 
@@ -74,7 +74,7 @@ def train_model(ENV, train_data=None, test_data=None, decode=False, file_decode=
         logits = tf.add(tf.add(tf.matmul(fw_output, weight_classes), tf.matmul(bw_output, weight_classes)), bias_classes)
 
         logits = tf.reshape(logits, [batch_size, -1, num_classes])
-        loss = tf.reduce_mean(ctc_ops.ctc_loss(logits, targets, seq_len, time_major=False))
+        loss = tf.reduce_mean(ctc_ops.ctc_loss(labels=targets, inputs=logits, sequence_length=seq_len, time_major=False))
         optimizer = tf.train.MomentumOptimizer(learning_rate, momentum).minimize(loss)
 
         # Evaluating
@@ -157,7 +157,7 @@ def train_model(ENV, train_data=None, test_data=None, decode=False, file_decode=
                     seq_len: batch_seq_len
                 }
                 d, oc = session.run([decoded[0], outputs], feed_dict=feed)
-                dsp = d.shape
+                dsp = d.dense_shape
                 res = []
                 for label in d.values[:dsp[1]]:
                     for k, v in phoneme_set_39.items():
