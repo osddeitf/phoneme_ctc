@@ -71,7 +71,7 @@ for old_name in reader.get_variable_to_shape_map():
     new_name = vars_to_rename[old_name]
   else:
     new_name = old_name
-  new_checkpoint_vars[new_name] = tf.Variable(reader.get_tensor(old_name))
+  new_checkpoint_vars[new_name] = tf.Variable(reader.get_tensor(old_name), name=new_name)
 
 init = tf.global_variables_initializer()
 saver = tf.train.Saver(new_checkpoint_vars)
